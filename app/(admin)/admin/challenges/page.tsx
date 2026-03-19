@@ -71,7 +71,8 @@ export default function AdminChallengesPage() {
   const loadChallenges = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams({ pageSize: '100' });
-    if (statusFilter) params.set('status', statusFilter);
+    // Send 'ALL' when no filter selected so API returns every status
+    params.set('status', statusFilter || 'ALL');
     if (typeFilter) params.set('type', typeFilter);
     fetch(`/api/challenges?${params}`)
       .then((r) => r.json())

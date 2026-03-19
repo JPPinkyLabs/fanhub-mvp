@@ -23,12 +23,23 @@ export async function GET(req: Request) {
   const page = parseInt(searchParams.get('page') ?? '1');
   const pageSize = parseInt(searchParams.get('pageSize') ?? '20');
 
-  // Admin puede ver todas; usuario solo las suyas
-  const isAdmin = ['SUPER_ADMIN', 'COUNTRY_MANAGER', 'SPORT_MANAGER', 'CLUB_MANAGER'].includes(auth.role);
+  // Role-based visibility
+  const isSuperAdmin = ['SUPER_ADMIN', 'COUNTRY_MANAGER', 'SPORT_MANAGER'].includes(auth.role);
+  const isClubManager = auth.role === 'CLUB_MANAGER';
+  const isAdmin = isSuperAdmin || isClubManager;
+
+  // Club Manager: only see verifications from users in their team
+  let clubTeamId: string | null = null;
+  if (isClubManager) {
+    const team = await prisma.team.findFirst({ where: { clubManagerId: auth.id } });
+    clubTeamId = team?.id ?? null;
+  }
 
   const where = {
     ...(!isAdmin && { userId: auth.id }),
-    ...(isAdmin && userId && { userId }),
+    ...(isSuperAdmin && userId && { userId }),
+    ...(isClubManager && clubTeamId && { user: { teamId: clubTeamId } }),
+    ...(isClubManager && userId && { userId }),
     ...(status && { status: status as 'PENDING' | 'APPROVED' | 'REJECTED' }),
   };
 

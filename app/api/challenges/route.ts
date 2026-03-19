@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   if (auth instanceof NextResponse) return auth;
 
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get('status') ?? 'ACTIVE';
+  const status = searchParams.get('status') ?? 'ACTIVE'; // 'ALL' = no status filter
   const type = searchParams.get('type');
   const teamId = searchParams.get('teamId');
 
@@ -30,15 +30,17 @@ export async function GET(req: Request) {
   const isRegularUser = auth.role === Role.USER || auth.role === Role.CLAN_ADMIN;
 
   type ChallengeWhere = {
-    status: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+    status?: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
     type?: 'INTERNAL' | 'CLUB' | 'BRAND';
     teamId?: string;
     OR?: Array<{ type?: 'INTERNAL' | 'CLUB' | 'BRAND'; teamId?: string | null }>;
   };
 
-  let where: ChallengeWhere = {
-    status: status as 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED',
-  };
+  // status=ALL means no status filter (admin wants to see everything)
+  let where: ChallengeWhere = {};
+  if (status !== 'ALL') {
+    where.status = (status ?? 'ACTIVE') as 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  }
 
   if (type) {
     where.type = type as 'INTERNAL' | 'CLUB' | 'BRAND';

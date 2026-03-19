@@ -222,6 +222,27 @@ export async function calcDailyCheckinScore(tier: Tier): Promise<ScoreResult> {
 }
 
 /**
+ * Calcula puntaje por publicación de contenido (10 pts base, máx 3/día)
+ */
+export async function calcContentPostScore(tier: Tier): Promise<ScoreResult> {
+  const basePoints = await getConfig<number>(CONFIG_KEYS.POINTS_CONTENT_POST, 10);
+  const multiplier = await getTierMultiplier(tier);
+  const organicPoints = basePoints * multiplier;
+
+  return {
+    points: organicPoints,
+    category: ScoreCategory.ORGANIC,
+    breakdown: {
+      basePoints,
+      tierMultiplier: multiplier,
+      organicPoints,
+      distanceBonus: 0,
+      activationPoints: 0,
+    },
+  };
+}
+
+/**
  * Aplica una activación (interna, club, o marca)
  * Los puntos de activación NO se multiplican por tier
  */

@@ -173,6 +173,7 @@ model User {
   referrals             User[]                  @relation("Referrals")
   referrer              User?                   @relation("Referrals", fields: [referredBy], references: [id])
   managedTeam           Team?                   @relation("ClubManagerTeam")
+  userContents          UserContent[]
 
   @@index([teamId])
   @@index([role])
@@ -416,7 +417,23 @@ model UserBadge {
 }
 
 // ─────────────────────────────────────────
-// APP CONFIG
+// USER CONTENT
+// ─────────────────────────────────────────
+
+model UserContent {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  body        String
+  mediaUrl    String?
+  pointsAwarded Float  @default(0)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
 // ─────────────────────────────────────────
 
 model AppConfig {

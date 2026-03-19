@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +13,7 @@ const registerSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Mínimo 6 caracteres'),
   confirmPassword: z.string(),
+  referralCode: z.string().optional(),
 }).refine((d) => d.password === d.confirmPassword, {
   message: 'Las contraseñas no coinciden',
   path: ['confirmPassword'],
@@ -20,14 +21,21 @@ const registerSchema = z.object({
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
   });
+
+  // Pre-fill referral code from ?ref= query param
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) setValue('referralCode', ref);
+  }, [searchParams, setValue]);
 
   const onSubmit = async (data: RegisterForm) => {
     setLoading(true);
@@ -36,7 +44,12 @@ export default function RegisterPage() {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: data.name, email: data.email, password: data.password }),
+      body: JSON.stringify({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        referralCode: data.referralCode || undefined,
+      }),
     });
 
     if (!res.ok) {
@@ -124,6 +137,19 @@ export default function RegisterPage() {
             {errors.confirmPassword && <p className="text-red-400 text-xs mt-1">{errors.confirmPassword.message}</p>}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-1.5">
+              Código de referido{' '}
+              <span className="text-gray-600 font-normal text-xs">(opcional)</span>
+            </label>
+            <input
+              {...register('referralCode')}
+              className="w-full bg-surface-elevated border border-surface-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brand-500 transition-colors font-mono uppercase"
+              placeholder="ABC123"
+            />
+            {errors.referralCode && <p className="text-red-400 text-xs mt-1">{errors.referralCode.message}</p>}
+          </div>
+
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-400 text-sm">{error}</div>
           )}
@@ -143,5 +169,14 @@ export default function RegisterPage() {
         <Link href="/login" className="text-brand-400 hover:text-brand-300 font-medium">Iniciar sesión</Link>
       </p>
     </div>
+  );
+}
+
+// useSearchParams must be inside a Suspense boundary
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-sm text-center py-8 text-gray-500">Cargando...</div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }

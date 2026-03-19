@@ -21,7 +21,14 @@ export async function GET(req: Request) {
   const page = parseInt(searchParams.get('page') ?? '1');
   const pageSize = parseInt(searchParams.get('pageSize') ?? '20');
   const search = searchParams.get('search') ?? '';
-  const teamId = searchParams.get('teamId');
+  const teamIdParam = searchParams.get('teamId');
+
+  // Club Manager: auto-scope to their team
+  let effectiveTeamId: string | undefined = teamIdParam ?? undefined;
+  if (auth.role === Role.CLUB_MANAGER) {
+    const team = await prisma.team.findFirst({ where: { clubManagerId: auth.id } });
+    effectiveTeamId = team?.id ?? undefined;
+  }
 
   const where = {
     ...(search && {
@@ -30,7 +37,7 @@ export async function GET(req: Request) {
         { email: { contains: search, mode: 'insensitive' as const } },
       ],
     }),
-    ...(teamId && { teamId }),
+    ...(effectiveTeamId && { teamId: effectiveTeamId }),
   };
 
   const [users, total] = await Promise.all([
