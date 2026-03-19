@@ -5,6 +5,7 @@ import { getUserTotalScore } from '@/lib/scoring';
 import { formatPoints, tierLabel, tierColor } from '@/lib/utils';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import CheckInButton from '@/components/CheckInButton';
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -70,6 +71,11 @@ export default async function DashboardPage() {
           {' · '}
           <span className={tierColor(user.tier)}>{tierLabel(user.tier)}</span>
         </p>
+      </div>
+
+      {/* Check-in diario */}
+      <div className="mb-6">
+        <CheckInButton />
       </div>
 
       {/* Stats cards */}

@@ -19,6 +19,7 @@ export default async function ProfilePage() {
         where: { status: 'ACTIVE' },
         include: { clan: { include: { team: { select: { name: true } } } } },
       },
+      _count: { select: { referrals: true } },
     },
   });
 
@@ -112,6 +113,22 @@ export default async function ProfilePage() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Referidos */}
+      <div className="bg-surface-card border border-surface-border rounded-xl p-5 mb-6">
+        <h2 className="font-bold mb-3">Invita amigos</h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Comparte tu código y gana puntos cuando tus referidos verifiquen su primera asistencia.
+        </p>
+        <div className="flex items-center gap-3 mb-4">
+          <code className="bg-surface-elevated border border-surface-border rounded-lg px-4 py-2 text-brand-400 font-mono font-bold text-sm flex-1 text-center">
+            {user.referralCode ?? 'Sin código aún'}
+          </code>
+        </div>
+        <p className="text-xs text-gray-500">
+          Has invitado a <span className="text-white font-semibold">{user._count.referrals}</span> {user._count.referrals === 1 ? 'usuario' : 'usuarios'}
+        </p>
       </div>
 
       {/* Score history */}

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 const items = [
   { href: '/dashboard', label: 'Inicio', icon: '🏠' },
   { href: '/ranking', label: 'Ranking', icon: '🏆' },
-  { href: '/clans', label: 'Clanes', icon: '🛡️' },
+  { href: '/badges', label: 'Badges', icon: '🎖️' },
   { href: '/verification', label: 'Verificar', icon: '✅' },
   { href: '/profile', label: 'Perfil', icon: '👤' },
 ];

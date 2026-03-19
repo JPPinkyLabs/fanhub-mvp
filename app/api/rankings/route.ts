@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/permissions';
+import { getConfig, CONFIG_KEYS } from '@/lib/config';
 
 export async function GET(req: Request) {
   const auth = await requireAuth();
@@ -63,19 +64,23 @@ export async function GET(req: Request) {
       }),
     );
 
-    // Ordenar por puntaje
-    clanScores.sort((a, b) => b.totalPoints - a.totalPoints);
+    // Filtrar clanes con mínimo de miembros activos
+    const minMembers = await getConfig<number>(CONFIG_KEYS.CLAN_MIN_MEMBERS_ACTIVE, 3);
+    const activeClanScores = clanScores.filter((c) => c.memberCount >= minMembers);
 
-    const paginated = clanScores
+    // Ordenar por puntaje
+    activeClanScores.sort((a, b) => b.totalPoints - a.totalPoints);
+
+    const paginated = activeClanScores
       .slice((page - 1) * pageSize, page * pageSize)
       .map((entry, idx) => ({ ...entry, rank: (page - 1) * pageSize + idx + 1 }));
 
     return NextResponse.json({
       data: paginated,
-      total: clanScores.length,
+      total: activeClanScores.length,
       page,
       pageSize,
-      totalPages: Math.ceil(clanScores.length / pageSize),
+      totalPages: Math.ceil(activeClanScores.length / pageSize),
     });
   }
 

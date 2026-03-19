@@ -12,6 +12,7 @@ import {
   calcIntlAttendanceScore,
   calcMembershipScore,
   calcSeasonPassScore,
+  calcReferralScore,
   recordScore,
 } from './scoring';
 
@@ -220,6 +221,24 @@ export async function approveVerification(
     verificationId,
     `Verificación aprobada: ${verification.type}`,
   );
+
+  // Grant referral points on first approved verification
+  const approvedCount = await prisma.verification.count({
+    where: { userId: verification.userId, status: VerificationStatus.APPROVED },
+  });
+  if (approvedCount === 1 && verification.user.referredBy) {
+    const referrer = await prisma.user.findUnique({ where: { id: verification.user.referredBy } });
+    if (referrer) {
+      const refScore = await calcReferralScore(referrer.tier);
+      await recordScore(
+        referrer.id,
+        refScore,
+        'REFERRAL',
+        verification.userId,
+        `Referido verificado: ${verification.user.name ?? verification.user.id}`,
+      );
+    }
+  }
 
   return {
     success: true,

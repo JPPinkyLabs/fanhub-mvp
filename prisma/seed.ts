@@ -5,6 +5,7 @@
 
 import { PrismaClient, Role, Tier, BadgeRarity, ConfigScope, ChallengeType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { nanoid } from 'nanoid';
 
 const prisma = new PrismaClient();
 
@@ -508,7 +509,7 @@ async function main() {
   console.log('   ✅ Badge "Primer Grito" otorgado a usuarios activos\n');
 
   // 9. Crear desafío interno de ejemplo
-  console.log('⚡ Creando desafío interno de ejemplo...');
+  console.log('⚡ Creando desafíos de ejemplo...');
   await prisma.challenge.upsert({
     where: { id: 'challenge-1' },
     update: {},
@@ -526,14 +527,64 @@ async function main() {
       createdBy: admin.id,
     },
   });
-  console.log('   ✅ 1 desafío interno creado\n');
+
+  // 10. Club Manager para Colo-Colo
+  console.log('🏥 Creando Club Manager para Colo-Colo...');
+  const clubManager = await prisma.user.upsert({
+    where: { email: 'club.colocolo@fanhub.cl' },
+    update: {},
+    create: {
+      email: 'club.colocolo@fanhub.cl',
+      name: 'Manager Colo-Colo',
+      passwordHash: await bcrypt.hash('club1234', 12),
+      role: Role.CLUB_MANAGER,
+      teamId: colocolo.id,
+      referralCode: `FH-${nanoid(8).toUpperCase()}`,
+    },
+  });
+  await prisma.team.update({
+    where: { id: colocolo.id },
+    data: { clubManagerId: clubManager.id },
+  });
+
+  await prisma.challenge.upsert({
+    where: { id: 'challenge-club-1' },
+    update: {},
+    create: {
+      id: 'challenge-club-1',
+      type: ChallengeType.CLUB,
+      title: 'Doble Puntaje Superclásico',
+      description: '¡Asiste al Superclásico Colo-Colo vs U de Chile y gana 15% de bonus en puntaje! Exclusivo para hinchas del Cacique.',
+      conditionsJson: { type: 'MATCH_ATTENDANCE', matchId: 'match-local-1' },
+      rewardJson: { bonusPct: 15 },
+      bonusPct: 15,
+      startDate: new Date('2026-04-14'),
+      endDate: new Date('2026-04-16'),
+      teamId: colocolo.id,
+      status: 'ACTIVE',
+      createdBy: clubManager.id,
+    },
+  });
+  console.log('   ✅ Club Manager Colo-Colo + desafío de club creados\n');
+
+  // 11. Agregar referralCode a usuarios existentes que no lo tengan
+  console.log('🔗 Generando referral codes...');
+  const usersWithoutCode = await prisma.user.findMany({ where: { referralCode: null } });
+  for (const u of usersWithoutCode) {
+    await prisma.user.update({
+      where: { id: u.id },
+      data: { referralCode: `FH-${nanoid(8).toUpperCase()}` },
+    });
+  }
+  console.log(`   ✅ Referral codes generados para ${usersWithoutCode.length} usuarios\n`);
 
   console.log('────────────────────────────────────────');
   console.log('✅ Seed completado exitosamente!\n');
   console.log('Credenciales de prueba:');
   console.log('  Admin: admin@fanhub.cl / admin123');
   console.log('  Users: carlos@test.cl, maria@test.cl, pedro@test.cl, ana@test.cl, luis@test.cl');
-  console.log('  Password usuarios: test1234\n');
+  console.log('  Password usuarios: test1234');
+  console.log('  Club Manager Colo-Colo: club.colocolo@fanhub.cl / club1234\n');
 }
 
 main()

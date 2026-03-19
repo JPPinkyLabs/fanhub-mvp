@@ -11,6 +11,7 @@ const navItems = [
   { href: '/ranking', label: 'Ranking', icon: '🏆' },
   { href: '/clans', label: 'Clanes', icon: '🛡️' },
   { href: '/challenges', label: 'Desafíos', icon: '⚡' },
+  { href: '/badges', label: 'Badges', icon: '🎖️' },
   { href: '/verification', label: 'Verificar', icon: '✅' },
   { href: '/profile', label: 'Mi Perfil', icon: '👤' },
 ];
@@ -19,10 +20,17 @@ const adminItems = [
   { href: '/admin', label: 'Panel Admin', icon: '⚙️' },
 ];
 
+const clubManagerItems = [
+  { href: '/admin', label: 'Mi Club', icon: '🏟️' },
+  { href: '/admin/challenges', label: 'Activaciones', icon: '⚡' },
+];
+
 const adminRoles: Role[] = [Role.SUPER_ADMIN, Role.COUNTRY_MANAGER, Role.SPORT_MANAGER, Role.CLUB_MANAGER];
 
 export default function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
+  const isClubManager = role === Role.CLUB_MANAGER;
+  const currentAdminItems = isClubManager ? clubManagerItems : adminItems;
 
   return (
     <aside className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 bg-surface-card border-r border-surface-border z-40">
@@ -62,10 +70,14 @@ export default function Sidebar({ role }: { role: Role }) {
         {adminRoles.includes(role) && (
           <>
             <div className="pt-4 pb-1">
-              <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider px-3">Administración</p>
+              <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider px-3">
+                {isClubManager ? 'Mi Club' : 'Administración'}
+              </p>
             </div>
-            {adminItems.map((item) => {
-              const active = pathname.startsWith(item.href);
+            {currentAdminItems.map((item) => {
+              const active = item.href === '/admin'
+                ? pathname === '/admin'
+                : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}

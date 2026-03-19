@@ -151,6 +151,62 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section className="py-20 px-4">
+        <div className="max-w-5xl mx-auto text-center mb-12">
+          <h2 className="text-3xl font-black mb-3">Elige tu plan</h2>
+          <p className="text-gray-400">Más pasión, más puntos, más recompensas</p>
+        </div>
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Free */}
+          <div className="bg-surface-card border border-surface-border rounded-2xl p-6">
+            <h3 className="text-lg font-bold mb-1">Free</h3>
+            <p className="text-3xl font-black mb-4">$0</p>
+            <ul className="space-y-2 text-sm text-gray-400 mb-6">
+              <li>&#10003; Puntaje base ×1.0</li>
+              <li>&#10003; Rankings y clanes</li>
+              <li>&#10003; Verificación de asistencia</li>
+              <li>&#10003; Badges básicos</li>
+            </ul>
+            <Link href="/register" className="block text-center bg-surface-elevated border border-surface-border rounded-lg py-2 text-sm font-semibold hover:bg-surface-card transition-colors">
+              Registrarse gratis
+            </Link>
+          </div>
+          {/* Premium */}
+          <div className="bg-surface-card border-2 border-brand-500 rounded-2xl p-6 relative">
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full">Popular</span>
+            <h3 className="text-lg font-bold mb-1 text-yellow-400">Premium</h3>
+            <p className="text-3xl font-black mb-1">$3.990 <span className="text-sm font-normal text-gray-500">CLP/mes</span></p>
+            <p className="text-xs text-gray-500 mb-4">o $39.900/año (ahorra 17%)</p>
+            <ul className="space-y-2 text-sm text-gray-400 mb-6">
+              <li>&#10003; Puntaje ×1.10 (+10%)</li>
+              <li>&#10003; Badges exclusivos</li>
+              <li>&#10003; Sin publicidad</li>
+              <li>&#10003; Todo lo Free</li>
+            </ul>
+            <Link href="/register" className="block text-center bg-brand-600 hover:bg-brand-500 text-white rounded-lg py-2 text-sm font-semibold transition-colors">
+              Comenzar Premium
+            </Link>
+          </div>
+          {/* Platinum */}
+          <div className="bg-surface-card border border-surface-border rounded-2xl p-6">
+            <h3 className="text-lg font-bold mb-1 text-cyan-400">Platinum</h3>
+            <p className="text-3xl font-black mb-1">$7.990 <span className="text-sm font-normal text-gray-500">CLP/mes</span></p>
+            <p className="text-xs text-gray-500 mb-4">o $79.900/año (ahorra 17%)</p>
+            <ul className="space-y-2 text-sm text-gray-400 mb-6">
+              <li>&#10003; Puntaje ×1.20 (+20%)</li>
+              <li>&#10003; Skins exclusivos</li>
+              <li>&#10003; Acceso anticipado a desafíos</li>
+              <li>&#10003; Marketplace priority</li>
+              <li>&#10003; Todo lo Premium</li>
+            </ul>
+            <Link href="/register" className="block text-center bg-surface-elevated border border-surface-border rounded-lg py-2 text-sm font-semibold hover:bg-surface-card transition-colors">
+              Ir Platinum
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="py-24 px-4 text-center">
         <div className="max-w-2xl mx-auto">

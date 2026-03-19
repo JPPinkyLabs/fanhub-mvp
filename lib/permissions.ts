@@ -142,14 +142,14 @@ export function isSuperAdmin(role: Role): boolean {
  */
 export async function requireRole(
   allowedRoles: Role[],
-): Promise<{ id: string; role: Role; email: string } | NextResponse> {
+): Promise<{ id: string; role: Role; email: string; tier: string; teamId: string | null } | NextResponse> {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   }
 
-  const user = session.user as { id: string; role: Role; email: string };
+  const user = session.user as { id: string; role: Role; email: string; tier: string; teamId: string | null };
 
   if (!allowedRoles.includes(user.role)) {
     return NextResponse.json(
@@ -165,7 +165,7 @@ export async function requireRole(
  * Helper para API routes: verifica que el usuario esté autenticado (cualquier rol).
  */
 export async function requireAuth(): Promise<
-  { id: string; role: Role; email: string; tier: string } | NextResponse
+  { id: string; role: Role; email: string; tier: string; teamId: string | null } | NextResponse
 > {
   const session = await getServerSession(authOptions);
 
@@ -173,5 +173,5 @@ export async function requireAuth(): Promise<
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   }
 
-  return session.user as { id: string; role: Role; email: string; tier: string };
+  return session.user as { id: string; role: Role; email: string; tier: string; teamId: string | null };
 }

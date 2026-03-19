@@ -64,7 +64,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireRole([Role.SUPER_ADMIN]);
+  const auth = await requireRole([Role.SUPER_ADMIN, Role.COUNTRY_MANAGER]);
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json() as unknown;
@@ -74,6 +74,22 @@ export async function POST(req: Request) {
   }
 
   const { email, name, password, role, teamId } = parsed.data;
+
+  // CLUB_MANAGER requires a teamId
+  if (role === Role.CLUB_MANAGER) {
+    if (!teamId) {
+      return NextResponse.json({ error: 'El equipo es obligatorio para el rol Club Manager' }, { status: 400 });
+    }
+    // Check the team doesn't already have a club manager
+    const existingTeam = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!existingTeam) {
+      return NextResponse.json({ error: 'Equipo no encontrado' }, { status: 404 });
+    }
+    if (existingTeam.clubManagerId) {
+      return NextResponse.json({ error: 'Este equipo ya tiene un Club Manager asignado' }, { status: 409 });
+    }
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return NextResponse.json({ error: 'El email ya está registrado' }, { status: 409 });
@@ -90,6 +106,14 @@ export async function POST(req: Request) {
       teamId,
     },
   });
+
+  // Assign club manager to team
+  if (role === Role.CLUB_MANAGER && teamId) {
+    await prisma.team.update({
+      where: { id: teamId },
+      data: { clubManagerId: user.id },
+    });
+  }
 
   const { passwordHash: _, ...userWithoutPassword } = user;
   return NextResponse.json({ data: userWithoutPassword }, { status: 201 });

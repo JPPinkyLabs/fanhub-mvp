@@ -3,9 +3,9 @@ import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/permissions';
 import { getConfig, CONFIG_KEYS } from '@/lib/config';
 
-// POST: unirse o invitar a un clan
+// POST: unirse a un clan
 export async function POST(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAuth();
@@ -26,39 +26,50 @@ export async function POST(
     return NextResponse.json({ error: 'El clan está lleno' }, { status: 400 });
   }
 
-  // Verificar cooldown: no puede reingresar al mismo clan dentro de N días
-  const cooldownSameDays = await getConfig<number>(CONFIG_KEYS.CLAN_COOLDOWN_SAME_DAYS, 10);
-  const lastMembership = await prisma.clanMembership.findFirst({
-    where: { clanId: id, userId: auth.id, status: { in: ['REMOVED', 'LEFT'] } },
+  // 1. Verificar si fue expulsado de este clan
+  const expelled = await prisma.clanMembership.findFirst({
+    where: { clanId: id, userId: auth.id, status: 'REMOVED' },
     orderBy: { leftAt: 'desc' },
   });
-
-  if (lastMembership?.leftAt) {
-    const daysSinceLeft = (Date.now() - lastMembership.leftAt.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysSinceLeft < cooldownSameDays) {
-      return NextResponse.json(
-        { error: `Debes esperar ${Math.ceil(cooldownSameDays - daysSinceLeft)} días para reingresar a este clan` },
-        { status: 400 },
-      );
+  if (expelled?.leftAt) {
+    const cooldownExpelled = await getConfig<number>('clan.cooldown_expelled_days', 30);
+    const daysSinceExpelled = (Date.now() - expelled.leftAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceExpelled < cooldownExpelled) {
+      return NextResponse.json({
+        error: `Fuiste expulsado de este clan. Puedes reingresar en ${Math.ceil(cooldownExpelled - daysSinceExpelled)} días.`,
+      }, { status: 403 });
     }
   }
 
-  // Verificar cambios máximos de clan por mes
-  const maxChanges = await getConfig<number>(CONFIG_KEYS.CLAN_MAX_CHANGES_MONTH, 2);
-  const thisMonth = new Date();
-  thisMonth.setDate(1);
-  thisMonth.setHours(0, 0, 0, 0);
+  // 2. Verificar cooldown si dejó voluntariamente el mismo clan
+  const leftVoluntarily = await prisma.clanMembership.findFirst({
+    where: { clanId: id, userId: auth.id, status: 'LEFT' },
+    orderBy: { leftAt: 'desc' },
+  });
+  if (leftVoluntarily?.leftAt) {
+    const cooldownSame = await getConfig<number>(CONFIG_KEYS.CLAN_COOLDOWN_SAME_DAYS, 10);
+    const daysSinceLeft = (Date.now() - leftVoluntarily.leftAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceLeft < cooldownSame) {
+      return NextResponse.json({
+        error: `Debes esperar ${Math.ceil(cooldownSame - daysSinceLeft)} días para reingresar a este clan.`,
+      }, { status: 403 });
+    }
+  }
 
-  const changesThisMonth = await prisma.clanMembership.count({
+  // 3. Verificar máximo cambios de clan por mes
+  const now = new Date();
+  const maxChanges = await getConfig<number>(CONFIG_KEYS.CLAN_MAX_CHANGES_MONTH, 2);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const recentChanges = await prisma.clanMembership.count({
     where: {
       userId: auth.id,
-      status: { in: ['LEFT', 'REMOVED'] },
-      leftAt: { gte: thisMonth },
+      joinedAt: { gte: startOfMonth },
     },
   });
-
-  if (changesThisMonth >= maxChanges) {
-    return NextResponse.json({ error: 'Has alcanzado el límite de cambios de clan este mes' }, { status: 400 });
+  if (recentChanges >= maxChanges) {
+    return NextResponse.json({
+      error: `Solo puedes cambiar de clan ${maxChanges} veces por mes.`,
+    }, { status: 429 });
   }
 
   // Crear membresía
@@ -90,7 +101,9 @@ export async function DELETE(
   }
 
   if (membership.role === 'FOUNDER') {
-    return NextResponse.json({ error: 'El fundador no puede abandonar el clan. Transfiere la fundación primero.' }, { status: 400 });
+    return NextResponse.json({
+      error: 'El fundador no puede abandonar el clan. Transfiere la fundación primero.',
+    }, { status: 400 });
   }
 
   await prisma.clanMembership.update({
