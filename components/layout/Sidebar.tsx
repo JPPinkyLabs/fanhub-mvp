@@ -13,6 +13,7 @@ const navItems = [
   { href: '/challenges', label: 'Desafíos', icon: '⚡' },
   { href: '/badges', label: 'Badges', icon: '🎖️' },
   { href: '/verification', label: 'Verificar', icon: '✅' },
+  { href: '/content', label: 'Publicar', icon: '📝' },
   { href: '/profile', label: 'Mi Perfil', icon: '👤' },
 ];
 

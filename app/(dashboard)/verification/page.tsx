@@ -14,7 +14,13 @@ const schema = z.object({
 });
 type VerificationForm = z.infer<typeof schema>;
 
-interface Match { id: string; homeTeam: { name: string }; awayTeam: { name: string }; date: string; }
+interface Match {
+  id: string;
+  homeTeam: { name: string; shortName: string };
+  awayTeam: { name: string; shortName: string };
+  date: string;
+  status: string;
+}
 interface Verification {
   id: string; type: string; status: string; createdAt: string;
   pointsAwarded: number | null; match?: { homeTeam: { name: string }; awayTeam: { name: string } } | null;
@@ -28,46 +34,22 @@ export default function VerificationPage() {
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoCoords, setGeoCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<VerificationForm>({
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<VerificationForm>({
     resolver: zodResolver(schema),
     defaultValues: { type: 'LOCAL_ATTENDANCE' },
   });
 
   const type = watch('type');
 
+  // Single clean useEffect — loads matches and verifications together
   useEffect(() => {
-    const fetchData = async () => {
-      const [matchRes, verRes] = await Promise.all([
-        fetch('/api/rankings').then(() => fetch('/api/teams')),
-        fetch('/api/verifications?pageSize=10'),
-      ]);
-      try {
-        const vData = await verRes.json() as { data: Verification[] };
-        setVerifications(vData.data);
-      } catch {}
-    };
-    fetchData();
-
-    // Load matches
-    fetch('/api/teams').then(async () => {
-      const res = await fetch('/api/rankings');
-      // Fetch upcoming matches from a separate query
-      const matchRes = await fetch('/api/teams');
-      if (matchRes.ok) {
-        // Load matches via a simple endpoint
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    const loadVerifications = async () => {
-      const res = await fetch('/api/verifications?pageSize=10');
-      if (res.ok) {
-        const data = await res.json() as { data: Verification[] };
-        setVerifications(data.data);
-      }
-    };
-    loadVerifications();
+    Promise.all([
+      fetch('/api/matches?status=ALL').then((r) => r.json()),
+      fetch('/api/verifications?pageSize=10').then((r) => r.json()),
+    ]).then(([matchData, verData]: [{ data: Match[] }, { data: Verification[] }]) => {
+      setMatches(matchData.data ?? []);
+      setVerifications(verData.data ?? []);
+    }).catch(() => {});
   }, []);
 
   const getGeolocation = () => {
@@ -84,12 +66,22 @@ export default function VerificationPage() {
     );
   };
 
+  const refreshVerifications = async () => {
+    const res = await fetch('/api/verifications?pageSize=10');
+    if (res.ok) {
+      const data = await res.json() as { data: Verification[] };
+      setVerifications(data.data ?? []);
+    }
+  };
+
   const onSubmit = async (data: VerificationForm) => {
     setLoading(true);
     setMessage(null);
 
     const payload = {
       ...data,
+      matchId: data.matchId || undefined,
+      evidenceUrl: data.evidenceUrl || undefined,
       ...(geoCoords && { geoLat: geoCoords.lat, geoLng: geoCoords.lng }),
     };
 
@@ -105,11 +97,10 @@ export default function VerificationPage() {
     if (!res.ok) {
       setMessage({ type: 'error', text: body.error ?? 'Error al enviar verificación' });
     } else {
-      setMessage({ type: 'success', text: body.data?.message ?? 'Verificación enviada' });
-      // Refresh verifications
-      const vRes = await fetch('/api/verifications?pageSize=10');
-      const vData = await vRes.json() as { data: Verification[] };
-      setVerifications(vData.data);
+      setMessage({ type: 'success', text: body.data?.message ?? 'Verificación enviada correctamente' });
+      reset({ type: 'LOCAL_ATTENDANCE' });
+      setGeoCoords(null);
+      await refreshVerifications();
     }
   };
 
@@ -121,9 +112,13 @@ export default function VerificationPage() {
       {/* Form */}
       <div className="bg-surface-card border border-surface-border rounded-2xl p-6 mb-8">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {/* Tipo */}
           <div>
             <label className="block text-sm font-medium mb-1.5">Tipo de verificación</label>
-            <select {...register('type')} className="w-full bg-surface-elevated border border-surface-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brand-500">
+            <select
+              {...register('type')}
+              className="w-full bg-surface-elevated border border-surface-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brand-500"
+            >
               <option value="LOCAL_ATTENDANCE">Partido de Local (+100 pts)</option>
               <option value="AWAY_ATTENDANCE">Partido de Visita (+100 pts + distancia)</option>
               <option value="INTL_ATTENDANCE">Partido Internacional (+200 pts + distancia)</option>
@@ -131,6 +126,27 @@ export default function VerificationPage() {
               <option value="SEASON_PASS">Abono de Temporada (+250 pts)</option>
             </select>
           </div>
+
+          {/* Selector de partido */}
+          {['LOCAL_ATTENDANCE', 'AWAY_ATTENDANCE', 'INTL_ATTENDANCE'].includes(type) && (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Partido</label>
+              <select
+                {...register('matchId')}
+                className="w-full bg-surface-elevated border border-surface-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brand-500"
+              >
+                <option value="">— Seleccionar partido —</option>
+                {matches.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.homeTeam.name} vs {m.awayTeam.name} — {new Date(m.date).toLocaleDateString('es-CL')}
+                  </option>
+                ))}
+              </select>
+              {matches.length === 0 && (
+                <p className="text-xs text-gray-600 mt-1">No hay partidos cargados aún.</p>
+              )}
+            </div>
+          )}
 
           {/* URL de evidencia */}
           <div>
@@ -209,7 +225,7 @@ export default function VerificationPage() {
                   <p className="text-xs text-gray-600">{new Date(v.createdAt).toLocaleDateString('es-CL')}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {v.pointsAwarded && (
+                  {v.pointsAwarded != null && v.pointsAwarded > 0 && (
                     <span className="text-brand-400 font-bold text-sm">+{Math.round(v.pointsAwarded)}</span>
                   )}
                   <span className={cn('text-xs font-semibold px-2 py-1 rounded-full', verificationStatusColor(v.status))}>

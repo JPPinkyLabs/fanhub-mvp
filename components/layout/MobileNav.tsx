@@ -9,6 +9,7 @@ const items = [
   { href: '/ranking', label: 'Ranking', icon: '🏆' },
   { href: '/badges', label: 'Badges', icon: '🎖️' },
   { href: '/verification', label: 'Verificar', icon: '✅' },
+  { href: '/content', label: 'Publicar', icon: '📝' },
   { href: '/profile', label: 'Perfil', icon: '👤' },
 ];
 

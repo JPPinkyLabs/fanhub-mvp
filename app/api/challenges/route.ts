@@ -33,6 +33,7 @@ export async function GET(req: Request) {
     status?: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
     type?: 'INTERNAL' | 'CLUB' | 'BRAND';
     teamId?: string;
+    createdBy?: string;
     OR?: Array<{ type?: 'INTERNAL' | 'CLUB' | 'BRAND'; teamId?: string | null }>;
   };
 
@@ -40,6 +41,11 @@ export async function GET(req: Request) {
   let where: ChallengeWhere = {};
   if (status !== 'ALL') {
     where.status = (status ?? 'ACTIVE') as 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  }
+
+  // Club Manager: only see their own challenges
+  if (auth.role === Role.CLUB_MANAGER) {
+    where.createdBy = auth.id;
   }
 
   if (type) {
