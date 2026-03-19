@@ -1,0 +1,434 @@
+// FanHub MVP — Prisma Schema
+// Piloto Chile - Fútbol Primera División
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  COUNTRY_MANAGER
+  SPORT_MANAGER
+  CLUB_MANAGER
+  CLAN_ADMIN
+  USER
+}
+
+enum Tier {
+  FREE
+  PREMIUM
+  PLATINUM
+}
+
+enum ScoreCategory {
+  ORGANIC
+  SUBSCRIPTION
+  ACTIVATION_INTERNAL
+  ACTIVATION_CLUB
+  ACTIVATION_BRAND
+}
+
+enum VerificationType {
+  LOCAL_ATTENDANCE
+  AWAY_ATTENDANCE
+  INTL_ATTENDANCE
+  MEMBERSHIP
+  SEASON_PASS
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ChallengeType {
+  INTERNAL
+  CLUB
+  BRAND
+}
+
+enum ChallengeStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum BadgeRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum ConfigScope {
+  GLOBAL
+  COUNTRY
+  SPORT
+}
+
+enum ClanMemberRole {
+  FOUNDER
+  ADMIN
+  MEMBER
+}
+
+enum ClanMemberStatus {
+  ACTIVE
+  REMOVED
+  LEFT
+}
+
+enum ClanStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DISSOLVED
+}
+
+// ─────────────────────────────────────────
+// AUTH (NextAuth compatible)
+// ─────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(USER)
+  tier          Tier      @default(FREE)
+  teamId        String?
+  bio           String?
+  city          String?
+  activeBadges  String[]  @default([]) // Array de BadgeIds activos en perfil (máx 5)
+  referredBy    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Auth
+  accounts Account[]
+  sessions Session[]
+
+  // Relations
+  team                  Team?                   @relation(fields: [teamId], references: [id])
+  scores                Score[]
+  verifications         Verification[]
+  challengeParticipations ChallengeParticipation[]
+  userBadges            UserBadge[]
+  clanMemberships       ClanMembership[]
+  createdChallenges     Challenge[]             @relation("ChallengeCreatedBy")
+  reviewedVerifications Verification[]          @relation("VerificationReviewer")
+  referrals             User[]                  @relation("Referrals")
+  referrer              User?                   @relation("Referrals", fields: [referredBy], references: [id])
+  managedTeam           Team?                   @relation("ClubManagerTeam")
+
+  @@index([teamId])
+  @@index([role])
+  @@index([tier])
+}
+
+// ─────────────────────────────────────────
+// TEAM
+// ─────────────────────────────────────────
+
+model Team {
+  id           String  @id @default(cuid())
+  name         String
+  shortName    String
+  city         String
+  stadiumName  String
+  stadiumLat   Float
+  stadiumLng   Float
+  logoUrl      String?
+  primaryColor String  @default("#16a34a")
+  country      String  @default("CL")
+  sport        String  @default("football")
+  competition  String  @default("Primera División")
+  active       Boolean @default(true)
+
+  fans       User[]
+  clans      Clan[]
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+  clubManager User?   @relation("ClubManagerTeam", fields: [clubManagerId], references: [id])
+  clubManagerId String? @unique
+}
+
+// ─────────────────────────────────────────
+// CLAN
+// ─────────────────────────────────────────
+
+model Clan {
+  id           String     @id @default(cuid())
+  name         String     @unique
+  teamId       String
+  description  String?
+  emblemConfig Json       @default("{}")
+  maxMembers   Int        @default(50)
+  status       ClanStatus @default(PENDING)
+  foundedAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  team        Team             @relation(fields: [teamId], references: [id])
+  memberships ClanMembership[]
+  challengeParticipations ChallengeParticipation[]
+
+  @@index([teamId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────
+// CLAN MEMBERSHIP
+// ─────────────────────────────────────────
+
+model ClanMembership {
+  id        String           @id @default(cuid())
+  clanId    String
+  userId    String
+  role      ClanMemberRole   @default(MEMBER)
+  status    ClanMemberStatus @default(ACTIVE)
+  joinedAt  DateTime         @default(now())
+  leftAt    DateTime?
+
+  clan Clan @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clanId, userId])
+  @@index([userId])
+  @@index([clanId])
+}
+
+// ─────────────────────────────────────────
+// SCORE
+// ─────────────────────────────────────────
+
+model Score {
+  id           String        @id @default(cuid())
+  userId       String
+  category     ScoreCategory
+  points       Float
+  sourceType   String        // e.g. "VERIFICATION", "CHALLENGE", "REFERRAL", "CHECKIN"
+  sourceId     String?       // ID del objeto fuente
+  description  String?
+  createdAt    DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, category])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────
+// VERIFICATION
+// ─────────────────────────────────────────
+
+model Verification {
+  id           String             @id @default(cuid())
+  userId       String
+  type         VerificationType
+  evidenceUrl  String?
+  geoLat       Float?
+  geoLng       Float?
+  status       VerificationStatus @default(PENDING)
+  matchId      String?
+  reviewedBy   String?
+  reviewNote   String?
+  pointsAwarded Float?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match    Match? @relation(fields: [matchId], references: [id])
+  reviewer User?  @relation("VerificationReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([matchId])
+}
+
+// ─────────────────────────────────────────
+// MATCH
+// ─────────────────────────────────────────
+
+model Match {
+  id             String   @id @default(cuid())
+  homeTeamId     String
+  awayTeamId     String
+  date           DateTime
+  venue          String
+  venueLat       Float?
+  venueLng       Float?
+  isInternational Boolean  @default(false)
+  competition    String   @default("Primera División")
+  round          String?
+  status         String   @default("SCHEDULED") // SCHEDULED, LIVE, FINISHED, CANCELLED
+  homeScore      Int?
+  awayScore      Int?
+  createdAt      DateTime @default(now())
+
+  homeTeam      Team           @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam      Team           @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  verifications Verification[]
+
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([date])
+}
+
+// ─────────────────────────────────────────
+// CHALLENGE
+// ─────────────────────────────────────────
+
+model Challenge {
+  id             String          @id @default(cuid())
+  type           ChallengeType
+  title          String
+  description    String
+  conditionsJson Json            @default("{}")
+  rewardJson     Json            @default("{}")
+  bonusPct       Float           @default(0) // 0 a 20
+  startDate      DateTime
+  endDate        DateTime
+  status         ChallengeStatus @default(DRAFT)
+  teamId         String?         // null = global
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  creator       User                     @relation("ChallengeCreatedBy", fields: [createdBy], references: [id])
+  participations ChallengeParticipation[]
+
+  @@index([status])
+  @@index([teamId])
+  @@index([type])
+}
+
+// ─────────────────────────────────────────
+// CHALLENGE PARTICIPATION
+// ─────────────────────────────────────────
+
+model ChallengeParticipation {
+  id          String    @id @default(cuid())
+  challengeId String
+  userId      String?
+  clanId      String?
+  progressJson Json     @default("{}")
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clan      Clan?     @relation(fields: [clanId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([challengeId])
+  @@index([userId])
+  @@index([clanId])
+}
+
+// ─────────────────────────────────────────
+// BADGE
+// ─────────────────────────────────────────
+
+model Badge {
+  id            String      @id @default(cuid())
+  name          String      @unique
+  description   String
+  conditionJson Json        @default("{}")
+  rarity        BadgeRarity @default(COMMON)
+  iconUrl       String?
+  iconEmoji     String?
+  createdAt     DateTime    @default(now())
+
+  userBadges UserBadge[]
+}
+
+// ─────────────────────────────────────────
+// USER BADGE
+// ─────────────────────────────────────────
+
+model UserBadge {
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, badgeId])
+  @@index([userId])
+  @@index([badgeId])
+}
+
+// ─────────────────────────────────────────
+// APP CONFIG
+// ─────────────────────────────────────────
+
+model AppConfig {
+  id            String     @id @default(cuid())
+  key           String     @unique
+  value         Json
+  scope         ConfigScope @default(GLOBAL)
+  description   String?
+  editableByRole Role      @default(SUPER_ADMIN)
+  dataType      String     @default("number") // "number" | "string" | "boolean" | "json"
+  updatedAt     DateTime   @updatedAt
+  updatedBy     String?
+
+  @@index([scope])
+  @@index([key])
+}
