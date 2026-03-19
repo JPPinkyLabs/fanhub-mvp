@@ -6,13 +6,15 @@ import { getConfig, CONFIG_KEYS } from '@/lib/config';
 // POST: unirse o invitar a un clan
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
+
   const clan = await prisma.clan.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { _count: { select: { memberships: true } } },
   });
 
@@ -27,7 +29,7 @@ export async function POST(
   // Verificar cooldown: no puede reingresar al mismo clan dentro de N días
   const cooldownSameDays = await getConfig<number>(CONFIG_KEYS.CLAN_COOLDOWN_SAME_DAYS, 10);
   const lastMembership = await prisma.clanMembership.findFirst({
-    where: { clanId: params.id, userId: auth.id, status: { in: ['REMOVED', 'LEFT'] } },
+    where: { clanId: id, userId: auth.id, status: { in: ['REMOVED', 'LEFT'] } },
     orderBy: { leftAt: 'desc' },
   });
 
@@ -61,8 +63,8 @@ export async function POST(
 
   // Crear membresía
   const membership = await prisma.clanMembership.upsert({
-    where: { clanId_userId: { clanId: params.id, userId: auth.id } },
-    create: { clanId: params.id, userId: auth.id, role: 'MEMBER', status: 'ACTIVE' },
+    where: { clanId_userId: { clanId: id, userId: auth.id } },
+    create: { clanId: id, userId: auth.id, role: 'MEMBER', status: 'ACTIVE' },
     update: { status: 'ACTIVE', leftAt: null, joinedAt: new Date() },
   });
 
@@ -72,13 +74,15 @@ export async function POST(
 // DELETE: salir del clan
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
+
   const membership = await prisma.clanMembership.findUnique({
-    where: { clanId_userId: { clanId: params.id, userId: auth.id } },
+    where: { clanId_userId: { clanId: id, userId: auth.id } },
   });
 
   if (!membership || membership.status !== 'ACTIVE') {
@@ -90,7 +94,7 @@ export async function DELETE(
   }
 
   await prisma.clanMembership.update({
-    where: { clanId_userId: { clanId: params.id, userId: auth.id } },
+    where: { clanId_userId: { clanId: id, userId: auth.id } },
     data: { status: 'LEFT', leftAt: new Date() },
   });
 

@@ -6,13 +6,15 @@ import { getUserTotalScore } from '@/lib/scoring';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
+
   const user = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       team: true,
       userBadges: { include: { badge: true } },
@@ -25,7 +27,7 @@ export async function GET(
 
   if (!user) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
 
-  const totalScore = await getUserTotalScore(params.id);
+  const totalScore = await getUserTotalScore(id);
   const { passwordHash: _, ...safeUser } = user;
 
   return NextResponse.json({ data: { ...safeUser, totalScore } });
@@ -33,15 +35,16 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN, Role.COUNTRY_MANAGER]);
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
   const body = await req.json() as { role?: Role; tier?: string; teamId?: string };
 
   const updated = await prisma.user.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(body.role && { role: body.role }),
       ...(body.tier && { tier: body.tier as 'FREE' | 'PREMIUM' | 'PLATINUM' }),
@@ -55,11 +58,12 @@ export async function PATCH(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN]);
   if (auth instanceof NextResponse) return auth;
 
-  await prisma.user.delete({ where: { id: params.id } });
+  const { id } = await params;
+  await prisma.user.delete({ where: { id } });
   return NextResponse.json({ message: 'Usuario eliminado' });
 }

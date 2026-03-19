@@ -6,21 +6,23 @@ import { invalidateConfigCache } from '@/lib/config';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { key: string } },
+  { params }: { params: Promise<{ key: string }> },
 ) {
-  const config = await prisma.appConfig.findUnique({ where: { key: params.key } });
+  const { key } = await params;
+  const config = await prisma.appConfig.findUnique({ where: { key } });
   if (!config) return NextResponse.json({ error: 'Config no encontrada' }, { status: 404 });
   return NextResponse.json({ data: config });
 }
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { key: string } },
+  { params }: { params: Promise<{ key: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN, Role.COUNTRY_MANAGER, Role.SPORT_MANAGER]);
   if (auth instanceof NextResponse) return auth;
 
-  const config = await prisma.appConfig.findUnique({ where: { key: params.key } });
+  const { key } = await params;
+  const config = await prisma.appConfig.findUnique({ where: { key } });
   if (!config) return NextResponse.json({ error: 'Config no encontrada' }, { status: 404 });
 
   // Verificar que el rol puede editar esta config
@@ -36,25 +38,26 @@ export async function PATCH(
   const body = await req.json() as { value: unknown; description?: string };
 
   const updated = await prisma.appConfig.update({
-    where: { key: params.key },
+    where: { key },
     data: { value: body.value as Parameters<typeof prisma.appConfig.update>[0]['data']['value'], description: body.description, updatedBy: auth.id },
   });
 
   // Invalidar cache
-  invalidateConfigCache(params.key);
+  invalidateConfigCache(key);
 
   return NextResponse.json({ data: updated });
 }
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { key: string } },
+  { params }: { params: Promise<{ key: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN]);
   if (auth instanceof NextResponse) return auth;
 
-  await prisma.appConfig.delete({ where: { key: params.key } });
-  invalidateConfigCache(params.key);
+  const { key } = await params;
+  await prisma.appConfig.delete({ where: { key } });
+  invalidateConfigCache(key);
 
   return NextResponse.json({ message: 'Configuración eliminada' });
 }

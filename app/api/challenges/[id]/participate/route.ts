@@ -4,17 +4,19 @@ import { requireAuth } from '@/lib/permissions';
 
 export async function POST(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const challenge = await prisma.challenge.findUnique({ where: { id: params.id } });
+  const { id } = await params;
+
+  const challenge = await prisma.challenge.findUnique({ where: { id } });
   if (!challenge) return NextResponse.json({ error: 'Desafío no encontrado' }, { status: 404 });
   if (challenge.status !== 'ACTIVE') return NextResponse.json({ error: 'Desafío no está activo' }, { status: 400 });
 
   const existing = await prisma.challengeParticipation.findUnique({
-    where: { challengeId_userId: { challengeId: params.id, userId: auth.id } },
+    where: { challengeId_userId: { challengeId: id, userId: auth.id } },
   });
 
   if (existing) {
@@ -23,7 +25,7 @@ export async function POST(
 
   const participation = await prisma.challengeParticipation.create({
     data: {
-      challengeId: params.id,
+      challengeId: id,
       userId: auth.id,
       progressJson: {},
     },

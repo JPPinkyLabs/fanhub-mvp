@@ -5,13 +5,15 @@ import { Role } from '@prisma/client';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
+
   const team = await prisma.team.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       _count: { select: { fans: true, clans: true } },
       clans: {
@@ -28,27 +30,29 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN, Role.COUNTRY_MANAGER, Role.SPORT_MANAGER]);
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
   const body = await req.json() as {
     name?: string; shortName?: string; city?: string;
     stadiumName?: string; logoUrl?: string; active?: boolean; primaryColor?: string;
   };
 
-  const team = await prisma.team.update({ where: { id: params.id }, data: body });
+  const team = await prisma.team.update({ where: { id }, data: body });
   return NextResponse.json({ data: team });
 }
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN]);
   if (auth instanceof NextResponse) return auth;
 
-  await prisma.team.update({ where: { id: params.id }, data: { active: false } });
+  const { id } = await params;
+  await prisma.team.update({ where: { id }, data: { active: false } });
   return NextResponse.json({ message: 'Equipo desactivado' });
 }

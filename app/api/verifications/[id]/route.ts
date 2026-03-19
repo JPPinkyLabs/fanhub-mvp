@@ -6,13 +6,15 @@ import { Role } from '@prisma/client';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN, Role.COUNTRY_MANAGER, Role.SPORT_MANAGER, Role.CLUB_MANAGER]);
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
+
   const v = await prisma.verification.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       user: { select: { id: true, name: true, email: true, image: true, tier: true } },
       match: { include: { homeTeam: true, awayTeam: true } },
@@ -25,15 +27,16 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN, Role.COUNTRY_MANAGER, Role.SPORT_MANAGER, Role.CLUB_MANAGER]);
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
   const body = await req.json() as { action: 'approve' | 'reject'; reviewNote?: string };
 
   if (body.action === 'approve') {
-    const result = await approveVerification(params.id, auth.id);
+    const result = await approveVerification(id, auth.id);
     if (!result.success) {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
@@ -42,7 +45,7 @@ export async function PATCH(
 
   if (body.action === 'reject') {
     const v = await prisma.verification.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: 'REJECTED',
         reviewedBy: auth.id,

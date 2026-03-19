@@ -5,13 +5,15 @@ import { Role } from '@prisma/client';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
+
   const clan = await prisma.clan.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       team: true,
       memberships: {
@@ -30,14 +32,16 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
+
   // Verificar que el usuario es FOUNDER o ADMIN del clan
   const membership = await prisma.clanMembership.findUnique({
-    where: { clanId_userId: { clanId: params.id, userId: auth.id } },
+    where: { clanId_userId: { clanId: id, userId: auth.id } },
   });
 
   const isAdmin = ['SUPER_ADMIN', 'COUNTRY_MANAGER'].includes(auth.role);
@@ -50,7 +54,7 @@ export async function PATCH(
   const body = await req.json() as { description?: string; emblemConfig?: Record<string, unknown>; maxMembers?: number };
 
   const clan = await prisma.clan.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(body.description !== undefined && { description: body.description }),
       ...(body.emblemConfig && { emblemConfig: body.emblemConfig as object }),
@@ -63,13 +67,14 @@ export async function PATCH(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireRole([Role.SUPER_ADMIN]);
   if (auth instanceof NextResponse) return auth;
 
+  const { id } = await params;
   await prisma.clan.update({
-    where: { id: params.id },
+    where: { id },
     data: { status: 'DISSOLVED' },
   });
 
