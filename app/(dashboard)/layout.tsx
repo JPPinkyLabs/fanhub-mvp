@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import MobileNav from '@/components/layout/MobileNav';
+import InstallPrompt from '@/components/pwa/InstallPrompt';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -22,6 +23,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       {/* Mobile bottom nav */}
       <MobileNav />
+
+      {/* PWA install banner */}
+      <InstallPrompt />
     </div>
   );
 }
