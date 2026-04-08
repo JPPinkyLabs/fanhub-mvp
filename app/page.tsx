@@ -226,7 +226,7 @@ export default function LandingPage() {
         <p>© 2026 FanHub. Piloto Chile — Fútbol Primera División.</p>
         <p className="mt-1">
           <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
-            Created with Perplexity Computer
+            Powered by Pinky Labs© 2026
           </a>
         </p>
       </footer>
